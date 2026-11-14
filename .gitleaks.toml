@@ -1,0 +1,8 @@
+# Documentation of deliberate exclusions for this repository.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Scanner artefacts (govulncheck JSON quotes advisory IDs) and CI-only dummy keys"
+paths = ['''qa/reports/.*''']
+regexes = ['''Y2ktb25seS1[A-Za-z0-9+/=]+''']

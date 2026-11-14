@@ -1,0 +1,243 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.47.9'
+
+jobs:
+  backend:
+    name: backend (vet + build + migrations + race tests)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nexus
+          POSTGRES_PASSWORD: nexus
+          POSTGRES_DB: nexus_backend_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U nexus"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      NEXUS_ENV: development
+      NEXUS_TEST_DATABASE_URL: postgres://nexus:nexus@127.0.0.1:5432/nexus_backend_test?sslmode=disable
+      NEXUS_EMAIL_FROM: no-reply@nexus.local
+      # CI-only keys. Never reuse these outside this workflow.
+      NEXUS_JWT_KEY: Y2ktb25seS1qd3Qta2V5LW5vdC1mb3ItcHJvZHVjdGlvbi0wMDA=
+      NEXUS_ENCRYPTION_KEY: Y2ktb25seS1lbmMta2V5LW5vdC1mb3ItcHJvZHVjdGlvbi0wMDA=
+      NEXUS_LOOKUP_KEY: Y2ktb25seS1sb29rdXAta2V5LW5vdC1mb3ItcHJvZHVjdGlvbi0wMA==
+    defaults:
+      run:
+        working-directory: backend-go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend-go/go.mod
+          cache-dependency-path: backend-go/go.sum
+      - name: go vet
+        run: go vet ./...
+      - name: go build
+        run: go build ./...
+      - name: migrate up (applies 000001..000007)
+        run: go run ./cmd/migrate up
+      - name: migrate down/up round-trip
+        run: go run ./cmd/migrate down && go run ./cmd/migrate up
+      - name: go test -race
+        run: go test -race ./...
+      - name: gofmt check
+        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+
+  flutter:
+    name: flutter (analyze + tests + coverage gate)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app-flutter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: pub get
+        run: flutter pub get --enforce-lockfile
+      - name: analyze (fatal infos and warnings)
+        run: flutter analyze --fatal-infos --fatal-warnings
+      - name: test with coverage
+        run: flutter test --coverage
+      - name: coverage gate (hand-written Dart, min 91%)
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import re, sys, pathlib
+          blocks = pathlib.Path('coverage/lcov.info').read_text().split('end_of_record')
+          hit = total = 0
+          for b in blocks:
+              m = re.search(r'^SF:(.+)$', b, re.M)
+              if not m:
+                  continue
+              f = m.group(1)
+              if f.endswith('.g.dart') or f.endswith('.freezed.dart'):
+                  continue
+              for line in b.splitlines():
+                  if line.startswith('DA:'):
+                      total += 1
+                      hit += 1 if int(line[3:].split(',')[1]) > 0 else 0
+          pct = 100.0 * hit / total if total else 0.0
+          print(f'hand-written line coverage: {hit}/{total} = {pct:.2f}%')
+          sys.exit(0 if pct >= 91.0 else 1)
+          PY
+      - name: upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-coverage
+          path: app-flutter/coverage/lcov.info
+          if-no-files-found: warn
+
+  web:
+    name: flutter web build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app-flutter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      - name: build web
+        run: flutter build web --release --dart-define=NEXUS_API_URL=https://api.example.com
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: app-flutter/build/web
+
+  android:
+    name: android (APK + AAB, signed)
+    # Release artefacts only for a tag or a manual run.
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app-flutter
+    env:
+      KEYSTORE_B64: ${{ secrets.NEXUS_ANDROID_KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.NEXUS_ANDROID_KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.NEXUS_ANDROID_KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.NEXUS_ANDROID_KEY_PASSWORD }}
+      API_URL: ${{ vars.NEXUS_API_URL }}
+      SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+
+      - name: explain the skip when signing material is absent
+        if: env.KEYSTORE_B64 == ''
+        run: |
+          echo "::notice::NEXUS_ANDROID_KEYSTORE_BASE64 is not set — skipping the signed build."
+          echo "Add the four NEXUS_ANDROID_* secrets to enable APK/AAB artefacts."
+
+      - name: restore keystore
+        if: env.KEYSTORE_B64 != ''
+        run: |
+          set -euo pipefail
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/nexus-release.jks"
+          cat > android/key.properties <<EOF
+          storePassword=$KEYSTORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=$RUNNER_TEMP/nexus-release.jks
+          EOF
+          test -s android/key.properties
+
+      - name: build APK (per ABI) and AAB
+        if: env.KEYSTORE_B64 != ''
+        run: |
+          set -euo pipefail
+          DEFINES="--dart-define=NEXUS_API_URL=${API_URL:-https://api.example.com}"
+          if [ -n "${SENTRY_DSN:-}" ]; then DEFINES="$DEFINES --dart-define=SENTRY_DSN=$SENTRY_DSN"; fi
+          flutter build apk --release --split-per-abi \
+            --obfuscate --split-debug-info=build/symbols \
+            --build-name=1.5.0 --build-number=6 $DEFINES
+          flutter build appbundle --release \
+            --obfuscate --split-debug-info=build/symbols \
+            --build-name=1.5.0 --build-number=6 $DEFINES
+
+      - name: verify the APK signature and version
+        if: env.KEYSTORE_B64 != ''
+        run: |
+          set -euo pipefail
+          APK=$(ls build/app/outputs/flutter-apk/app-arm64-v8a-release.apk)
+          BT=$(ls "$ANDROID_SDK_ROOT"/build-tools/*/apksigner | tail -1)
+          "$BT" verify --verbose --print-certs "$APK"
+          sha256sum build/app/outputs/flutter-apk/*.apk build/app/outputs/bundle/release/*.aab
+
+      - uses: actions/upload-artifact@v4
+        if: env.KEYSTORE_B64 != ''
+        with:
+          name: android-release
+          path: |
+            app-flutter/build/app/outputs/flutter-apk/*.apk
+            app-flutter/build/app/outputs/bundle/release/*.aab
+            app-flutter/build/symbols
+          retention-days: 30
+
+  design-guard:
+    name: design source of truth unchanged
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: design HTML md5 must stay a8fafd493261eda3876d79039c564e10
+        run: |
+          set -euo pipefail
+          f="design/Social Suite v3 — Business & Community.html"
+          test -f "$f"
+          got=$(md5sum "$f" | cut -d' ' -f1)
+          echo "design md5: $got"
+          test "$got" = "a8fafd493261eda3876d79039c564e10"
+
+  secrets:
+    name: secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        run: |
+          set -euo pipefail
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_linux_x64.tar.gz -o /tmp/g.tgz
+          tar -xzf /tmp/g.tgz -C /tmp gitleaks
+          /tmp/gitleaks dir . --no-banner --redact --exit-code 1

@@ -1,0 +1,13 @@
+PASS  1 register: want 202, got 202 REQUIRE_EMAIL_VERIFICATION
+PASS  1 register action: want REQUIRE_EMAIL_VERIFICATION, got REQUIRE_EMAIL_VERIFICATION
+PASS  2 email-verify: want 202, got 202
+PASS  3 confirm on deviceA: want 200, got 200
+PASS  3 confirm returns jwt: want True, got True
+PASS  4 deviceA login: want 200, got 200
+PASS  5 deviceB login (unknown): want 202, got 202 REQUIRE_EMAIL_VERIFICATION
+PASS  6 email-verify (recovery): want 202, got 202
+PASS  7 confirm on deviceB: want 200, got 200
+PASS  8 deviceB login after rebind: want 200, got 200
+PASS  9 deviceA login (revoked): want 202, got 202
+
+11/11 assertions passed
