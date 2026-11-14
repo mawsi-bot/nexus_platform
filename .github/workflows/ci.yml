@@ -47,7 +47,7 @@ jobs:
       run:
         working-directory: backend-go
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-go@v5
         with:
           go-version-file: backend-go/go.mod
@@ -72,7 +72,7 @@ jobs:
       run:
         working-directory: app-flutter
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
@@ -121,7 +121,7 @@ jobs:
       run:
         working-directory: app-flutter
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
@@ -151,7 +151,7 @@ jobs:
       API_URL: ${{ vars.NEXUS_API_URL }}
       SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -218,7 +218,7 @@ jobs:
     name: design source of truth unchanged
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: design HTML md5 must stay a8fafd493261eda3876d79039c564e10
         run: |
           set -euo pipefail
@@ -232,7 +232,7 @@ jobs:
     name: secret scan (gitleaks)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: gitleaks
