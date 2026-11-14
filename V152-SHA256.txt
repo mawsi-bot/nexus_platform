@@ -1,0 +1,2 @@
+382fa6922f6dea1c530cca0e56aab5bb6d7cf8077d133b8af660af8bb578c2f3  /home/user/workspace/Nexus-1.5.2-20261114.zip
+2702d4d371ceec2ccd6d8c461a54d5b3926e1dad8805ee48a1ad85ae1eac80d4  nexus-v152.patch
