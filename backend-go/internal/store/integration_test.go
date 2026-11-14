@@ -135,8 +135,16 @@ func TestPostgresAuthConcurrencyAndSocial(t *testing.T) {
 	if _, e := s.Register(ctx, "+959123456788", device, "owner@example.com"); !errors.Is(e, core.ErrConflict) {
 		t.Fatal(e)
 	}
-	if _, e := s.DeviceLogin(ctx, phone, device); !errors.Is(e, core.ErrUnauthorized) {
+	// Device-first signup: Register already granted this installation a session, so a
+	// returning device must log straight back in on the same account. This assertion
+	// used to expect ErrUnauthorized, which contradicts Register's documented
+	// device-first behaviour and the identical grant both paths share.
+	devicePair, e := s.DeviceLogin(ctx, phone, device)
+	if e != nil {
 		t.Fatal(e)
+	}
+	if me, _, e := s.Authenticate(ctx, devicePair.JWT); e != nil || me.ID == "" {
+		t.Fatalf("device login session unusable: %v", e)
 	}
 	if e := s.EmailVerify(ctx, phone, "owner@example.com"); e != nil {
 		t.Fatal(e)

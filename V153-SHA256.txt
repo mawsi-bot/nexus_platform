@@ -1,0 +1,2 @@
+b4bbc6dcb8b2bdfc5932c4fd548924bdbeb6bed46c5329f96b07811f12365997  /home/user/workspace/Nexus-1.5.3-20261114.zip
+17be97deacb3644f5de2bc4268f5a68899b7ae6b7dbd90706112de8644c3daab  nexus-v153.patch

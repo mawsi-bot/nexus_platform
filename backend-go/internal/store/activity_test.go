@@ -25,14 +25,17 @@ func TestPostgresProfilePatchAndActivitiesHTTP(t *testing.T) {
 	m := &mailCapture{}
 	svc := &auth.Service{Store: p, Mail: m, LookupKey: p.LookupKey, Now: func() time.Time { return now }, Tokens: auth.Tokens{Key: []byte(strings.Repeat("j", 32)), Now: func() time.Time { return now }}}
 	tokens := map[string]string{}
-	for _, v := range []struct{ phone, email string }{{"+959123456789", "owner@example.com"}, {"+959123456788", "peer@example.com"}} {
-		if _, e := svc.Register(ctx, v.phone, "device-012345678901", v.email); e != nil {
+	// One installation owns one account (users_device_hash_unique_idx), so the two
+	// people in this scenario must come from two different devices.
+	for i, v := range []struct{ phone, email string }{{"+959123456789", "owner@example.com"}, {"+959123456788", "peer@example.com"}} {
+		device := "device-01234567890" + strconv.Itoa(i)
+		if _, e := svc.Register(ctx, v.phone, device, v.email); e != nil {
 			t.Fatal(e)
 		}
 		if e := svc.EmailVerify(ctx, v.phone, v.email); e != nil {
 			t.Fatal(e)
 		}
-		pair, e := svc.Confirm(ctx, m.code, "device-012345678901")
+		pair, e := svc.Confirm(ctx, m.code, device)
 		if e != nil {
 			t.Fatal(e)
 		}

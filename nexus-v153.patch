@@ -1,0 +1,67 @@
+diff --git a/backend-go/internal/store/activity_test.go b/backend-go/internal/store/activity_test.go
+index 682f435..46415f4 100644
+--- a/backend-go/internal/store/activity_test.go
++++ b/backend-go/internal/store/activity_test.go
+@@ -25,14 +25,17 @@ func TestPostgresProfilePatchAndActivitiesHTTP(t *testing.T) {
+ 	m := &mailCapture{}
+ 	svc := &auth.Service{Store: p, Mail: m, LookupKey: p.LookupKey, Now: func() time.Time { return now }, Tokens: auth.Tokens{Key: []byte(strings.Repeat("j", 32)), Now: func() time.Time { return now }}}
+ 	tokens := map[string]string{}
+-	for _, v := range []struct{ phone, email string }{{"+959123456789", "owner@example.com"}, {"+959123456788", "peer@example.com"}} {
+-		if _, e := svc.Register(ctx, v.phone, "device-012345678901", v.email); e != nil {
++	// One installation owns one account (users_device_hash_unique_idx), so the two
++	// people in this scenario must come from two different devices.
++	for i, v := range []struct{ phone, email string }{{"+959123456789", "owner@example.com"}, {"+959123456788", "peer@example.com"}} {
++		device := "device-01234567890" + strconv.Itoa(i)
++		if _, e := svc.Register(ctx, v.phone, device, v.email); e != nil {
+ 			t.Fatal(e)
+ 		}
+ 		if e := svc.EmailVerify(ctx, v.phone, v.email); e != nil {
+ 			t.Fatal(e)
+ 		}
+-		pair, e := svc.Confirm(ctx, m.code, "device-012345678901")
++		pair, e := svc.Confirm(ctx, m.code, device)
+ 		if e != nil {
+ 			t.Fatal(e)
+ 		}
+diff --git a/backend-go/internal/store/integration_test.go b/backend-go/internal/store/integration_test.go
+index 4f4d819..5a32efc 100644
+--- a/backend-go/internal/store/integration_test.go
++++ b/backend-go/internal/store/integration_test.go
+@@ -135,9 +135,17 @@ func TestPostgresAuthConcurrencyAndSocial(t *testing.T) {
+ 	if _, e := s.Register(ctx, "+959123456788", device, "owner@example.com"); !errors.Is(e, core.ErrConflict) {
+ 		t.Fatal(e)
+ 	}
+-	if _, e := s.DeviceLogin(ctx, phone, device); !errors.Is(e, core.ErrUnauthorized) {
++	// Device-first signup: Register already granted this installation a session, so a
++	// returning device must log straight back in on the same account. This assertion
++	// used to expect ErrUnauthorized, which contradicts Register's documented
++	// device-first behaviour and the identical grant both paths share.
++	devicePair, e := s.DeviceLogin(ctx, phone, device)
++	if e != nil {
+ 		t.Fatal(e)
+ 	}
++	if me, _, e := s.Authenticate(ctx, devicePair.JWT); e != nil || me.ID == "" {
++		t.Fatalf("device login session unusable: %v", e)
++	}
+ 	if e := s.EmailVerify(ctx, phone, "owner@example.com"); e != nil {
+ 		t.Fatal(e)
+ 	}
+diff --git a/backend-go/migrations/000001_init.down.sql b/backend-go/migrations/000001_init.down.sql
+index af1d0ee..2b0c70c 100644
+--- a/backend-go/migrations/000001_init.down.sql
++++ b/backend-go/migrations/000001_init.down.sql
+@@ -1,7 +1,7 @@
+-DROP TABLE IF EXISTS relations;
+-DROP TABLE IF EXISTS memberships;
+-DROP TABLE IF EXISTS items;
+-DROP TABLE IF EXISTS rate_limits;
+-DROP TABLE IF EXISTS sessions;
+-DROP TABLE IF EXISTS challenges;
+-DROP TABLE IF EXISTS users;
++DROP TABLE IF EXISTS relations CASCADE;
++DROP TABLE IF EXISTS memberships CASCADE;
++DROP TABLE IF EXISTS items CASCADE;
++DROP TABLE IF EXISTS rate_limits CASCADE;
++DROP TABLE IF EXISTS sessions CASCADE;
++DROP TABLE IF EXISTS challenges CASCADE;
++DROP TABLE IF EXISTS users CASCADE;
