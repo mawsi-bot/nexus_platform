@@ -1,4 +1,4 @@
-package store
+package store_test
 
 import (
 	"context"
@@ -19,10 +19,11 @@ func TestReactReplacesAndSummarises(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	uid, _, e := s.Authenticate(ctx, pair.JWT)
+	user, _, e := s.Authenticate(ctx, pair.JWT)
 	if e != nil {
 		t.Fatal(e)
 	}
+	uid := user.ID
 	post, e := p.Create(ctx, uid, core.Item{Kind: "post", Body: "hello"}, nil)
 	if e != nil {
 		t.Fatal(e)

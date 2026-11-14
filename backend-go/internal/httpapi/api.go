@@ -375,7 +375,7 @@ func (a *API) social(w http.ResponseWriter, r *http.Request) {
 		var input struct {
 			Name       string   `json:"name"`
 			Body       string   `json:"body"`
-	MediaURL string `json:"media_url"`
+			MediaURL   string   `json:"media_url"`
 			Visibility string   `json:"visibility"`
 			Price      int64    `json:"price_minor"`
 			Currency   string   `json:"currency"`

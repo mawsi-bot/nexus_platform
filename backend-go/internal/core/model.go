@@ -36,8 +36,8 @@ type User struct {
 	Metadata   json.RawMessage `json:"metadata,omitempty"`
 	// Privacy module (§2.4).
 	PhoneVerified bool   `json:"phone_verified"`
-	Private  bool   `json:"private_account"`
-	Comments string `json:"comment_policy,omitempty"`
+	Private       bool   `json:"private_account"`
+	Comments      string `json:"comment_policy,omitempty"`
 }
 type Challenge struct {
 	Selector, Hash, UserID string
@@ -81,23 +81,23 @@ type PhoneSender interface {
 }
 
 type Item struct {
-	ID         int64           `json:"id"`
-	Kind       string          `json:"kind"`
-	AuthorID   string          `json:"author_id,omitempty"`
-	ParentID   int64           `json:"parent_id,omitempty"`
-	Name       string          `json:"name,omitempty"`
-	Body       string          `json:"body,omitempty"`
-	Visibility string          `json:"visibility,omitempty"`
-	Price      int64           `json:"price_minor,omitempty"`
-	Currency   string          `json:"currency,omitempty"`
-	PlaceName  string          `json:"place_name,omitempty"`
-	MediaURL   string          `json:"media_url,omitempty"`
-	Media      []string        `json:"media,omitempty"`
+	ID         int64            `json:"id"`
+	Kind       string           `json:"kind"`
+	AuthorID   string           `json:"author_id,omitempty"`
+	ParentID   int64            `json:"parent_id,omitempty"`
+	Name       string           `json:"name,omitempty"`
+	Body       string           `json:"body,omitempty"`
+	Visibility string           `json:"visibility,omitempty"`
+	Price      int64            `json:"price_minor,omitempty"`
+	Currency   string           `json:"currency,omitempty"`
+	PlaceName  string           `json:"place_name,omitempty"`
+	MediaURL   string           `json:"media_url,omitempty"`
+	Media      []string         `json:"media,omitempty"`
 	Reactions  *ReactionSummary `json:"reactions,omitempty"`
-	Lat        *float64        `json:"lat,omitempty"`
-	Lng        *float64        `json:"lng,omitempty"`
-	CreatedAt  time.Time       `json:"created_at"`
-	Metadata   json.RawMessage `json:"metadata,omitempty"`
+	Lat        *float64         `json:"lat,omitempty"`
+	Lng        *float64         `json:"lng,omitempty"`
+	CreatedAt  time.Time        `json:"created_at"`
+	Metadata   json.RawMessage  `json:"metadata,omitempty"`
 }
 type Query struct {
 	Kind, UserID, Search string

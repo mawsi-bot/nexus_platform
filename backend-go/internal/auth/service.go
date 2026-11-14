@@ -105,6 +105,7 @@ func (s *Service) EmailVerify(ctx context.Context, p, e string) error {
 	}
 	return nil
 }
+
 // StartPhoneVerification sends a one-time code to the account's own number.
 // It is deliberately limited to one message per minute per account.
 func (s *Service) StartPhoneVerification(ctx context.Context, uid string) error {

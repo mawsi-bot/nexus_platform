@@ -79,7 +79,15 @@ jobs:
           channel: stable
           cache: true
       - name: pub get
-        run: flutter pub get --enforce-lockfile
+        run: |
+          if [ "${{ github.actor }}" = "dependabot[bot]" ]; then
+            # Dependabot edits pubspec.yaml but cannot regenerate pubspec.lock, so the
+            # committed lock is stale on its PRs by construction: resolve freely there.
+            echo "::notice::dependabot PR — resolving without --enforce-lockfile"
+            flutter pub get
+          else
+            flutter pub get --enforce-lockfile
+          fi
       - name: analyze (fatal infos and warnings)
         run: flutter analyze --fatal-infos --fatal-warnings
       - name: test with coverage
@@ -127,7 +135,14 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
-      - run: flutter pub get --enforce-lockfile
+      - name: pub get
+        run: |
+          if [ "${{ github.actor }}" = "dependabot[bot]" ]; then
+            echo "::notice::dependabot PR — resolving without --enforce-lockfile"
+            flutter pub get
+          else
+            flutter pub get --enforce-lockfile
+          fi
       - name: build web
         run: flutter build web --release --dart-define=NEXUS_API_URL=https://api.example.com
       - uses: actions/upload-artifact@v4
@@ -161,7 +176,14 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           cache: true
-      - run: flutter pub get --enforce-lockfile
+      - name: pub get
+        run: |
+          if [ "${{ github.actor }}" = "dependabot[bot]" ]; then
+            echo "::notice::dependabot PR — resolving without --enforce-lockfile"
+            flutter pub get
+          else
+            flutter pub get --enforce-lockfile
+          fi
 
       - name: explain the skip when signing material is absent
         if: env.KEYSTORE_B64 == ''
@@ -238,6 +260,8 @@ jobs:
       - name: gitleaks
         run: |
           set -euo pipefail
-          curl -sSfL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_linux_x64.tar.gz -o /tmp/g.tgz
+          url=$(curl -sSfL https://api.github.com/repos/gitleaks/gitleaks/releases/latest | python3 -c "import sys,json;print([a['browser_download_url'] for a in json.load(sys.stdin)['assets'] if a['name'].endswith('linux_x64.tar.gz')][0])")
+          echo "downloading $url"
+          curl -sSfL "$url" -o /tmp/g.tgz
           tar -xzf /tmp/g.tgz -C /tmp gitleaks
           /tmp/gitleaks dir . --no-banner --redact --exit-code 1

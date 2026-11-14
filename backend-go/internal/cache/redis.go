@@ -24,9 +24,9 @@ type Cache interface {
 // Nop is returned when no cache is configured, so callers never branch on nil.
 type Nop struct{}
 
-func (Nop) Get(context.Context, string) (string, bool, error)     { return "", false, nil }
+func (Nop) Get(context.Context, string) (string, bool, error)        { return "", false, nil }
 func (Nop) Set(context.Context, string, string, time.Duration) error { return nil }
-func (Nop) Del(context.Context, ...string) error                  { return nil }
+func (Nop) Del(context.Context, ...string) error                     { return nil }
 
 // Redis speaks the wire protocol directly; no client library to audit.
 type Redis struct {

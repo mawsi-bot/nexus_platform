@@ -17,11 +17,11 @@ import (
 	"nexus/backend-go/internal/auth"
 	"nexus/backend-go/internal/cache"
 	"nexus/backend-go/internal/config"
-	"nexus/backend-go/internal/media"
-	"nexus/backend-go/internal/sms"
 	"nexus/backend-go/internal/core"
 	"nexus/backend-go/internal/email"
 	"nexus/backend-go/internal/httpapi"
+	"nexus/backend-go/internal/media"
+	"nexus/backend-go/internal/sms"
 	"nexus/backend-go/internal/store"
 )
 
@@ -36,6 +36,7 @@ func key(name string) ([]byte, error) {
 	}
 	return b, nil
 }
+
 // devNoLimits disables the persistent rate limiter for local rehearsal only.
 // Production keeps the real limiter: main only wraps the store when
 // NEXUS_ENV=development AND NEXUS_RATE_LIMIT_DISABLED=1.
