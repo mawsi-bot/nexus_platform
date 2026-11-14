@@ -116,7 +116,7 @@ jobs:
           PY
       - name: upload coverage
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: flutter-coverage
           path: app-flutter/coverage/lcov.info
@@ -145,7 +145,7 @@ jobs:
           fi
       - name: build web
         run: flutter build web --release --dart-define=NEXUS_API_URL=https://api.example.com
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: web-build
           path: app-flutter/build/web
@@ -226,7 +226,7 @@ jobs:
           "$BT" verify --verbose --print-certs "$APK"
           sha256sum build/app/outputs/flutter-apk/*.apk build/app/outputs/bundle/release/*.aab
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: env.KEYSTORE_B64 != ''
         with:
           name: android-release
